@@ -183,11 +183,17 @@ def get_cats(limit_per_subreddit=10):
 st.markdown("<h1>Floyd and Frieda's Dustkitty Gallery ✨</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>The world's premier collection of velvety gray fluff-clouds ฅ^•ﻌ•^ฅ</p>", unsafe_allow_html=True)
 
-# Improvement: Add a slider for user to control the number of cats
 desired_cats_per_subreddit = st.slider(
     "How many dustkitties per subreddit would you like to summon?",
     min_value=5, max_value=20, value=10, step=1,
     key="cat_slider"
+)
+
+# Improvement: Add a slider for user to control the number of columns in the gallery
+num_columns = st.slider(
+    "How many columns would you like in your gallery?",
+    min_value=1, max_value=4, value=2, step=1, # Default to 2 columns, allow up to 4
+    key="column_slider"
 )
 
 if st.button("✨ SUMMON MORE CATS ✨"):
@@ -205,14 +211,15 @@ with st.spinner("Whispering to the dust kitties..."):
         return get_cats(limit)
     
     cat_list = cached_cats(desired_cats_per_subreddit) # Pass the slider value to the cached function
-    random.shuffle(cat_list) # Improvement: Randomize the order of cats for a fresh look on each summon
+    random.shuffle(cat_list) # Randomize the order of cats for a fresh look on each summon
 
 if cat_list:
     st.markdown(f"<p class='cat-count-info'>✨ Found {len(cat_list)} adorable dustkitties! Enjoy the fluff! 🐾</p>", unsafe_allow_html=True)
     
-    cols = st.columns(2)
+    # Use the user-defined number of columns
+    cols = st.columns(num_columns)
     for i, cat in enumerate(cat_list):
-        with cols[i % 2]:
+        with cols[i % num_columns]: # Distribute images across the selected number of columns
             st.markdown(f"### 🎀 Dustkitty {i+1}")
             
             st.markdown(f"""
