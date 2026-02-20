@@ -44,6 +44,16 @@ st.markdown("""
         font-weight: bold;
     }
 
+    /* Added style for the cat count info */
+    .cat-count-info {
+        text-align: center;
+        color: #8da9c4; 
+        font-size: 1.1rem;
+        margin-top: -15px; 
+        margin-bottom: 25px;
+        font-weight: bold;
+    }
+
     /* Image Styling applied to the HTML images */
     .kitty-card img {
         width: 100%;
@@ -105,7 +115,8 @@ def get_cats():
         url = f"https://www.reddit.com/r/{sub}/new.json?limit=40"
         
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=10) # Added timeout
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             data = response.json()
             posts = data.get('data', {}).get('children', [])
             
@@ -125,13 +136,19 @@ def get_cats():
                 # 2. Gallery Support
                 elif p.get('is_gallery') and p.get('media_metadata'):
                     first_item_id = list(p['media_metadata'].keys())[0]
-                    img_url = p['media_metadata'][first_item_id]['s']['u']
+                    # Direct image URL from gallery, ensuring it's not a video or GIF if possible
+                    img_info = p['media_metadata'][first_item_id]['s']
+                    if 'u' in img_info: # 'u' is for static image url
+                        img_url = img_info['u']
+                    elif 'mp4_url' in img_info: # Fallback for gif/video previews if static not available
+                        img_url = img_info['mp4_url']
 
                 # 3. Preview Fallback
-                elif p.get('preview'):
+                elif p.get('preview') and p['preview'].get('images'):
                     img_url = p['preview']['images'][0]['source']['url']
 
-                if img_url and "v.redd.it" not in img_url:
+                # Filter out v.redd.it videos and ensure we have an image URL
+                if img_url and "v.redd.it" not in img_url and not img_url.endswith(('.mp4', '.gifv')):
                     clean_url = img_url.replace("&amp;", "&")
                     # Store both image and post link
                     all_cats.append({
@@ -140,8 +157,20 @@ def get_cats():
                     })
                     count += 1
                     
-        except Exception:
-            pass 
+        except requests.exceptions.HTTPError as errh:
+            print(f"HTTP Error for {sub}: {errh}")
+            # st.warning(f"Couldn't fetch from r/{sub}: HTTP Error.") # Cannot use st.warning in cached func
+        except requests.exceptions.ConnectionError as errc:
+            print(f"Error Connecting for {sub}: {errc}")
+            # st.warning(f"Couldn't fetch from r/{sub}: Connection Error.")
+        except requests.exceptions.Timeout as errt:
+            print(f"Timeout Error for {sub}: {errt}")
+            # st.warning(f"Couldn't fetch from r/{sub}: Timeout.")
+        except requests.exceptions.RequestException as err:
+            print(f"Other Request Error for {sub}: {err}")
+            # st.warning(f"Couldn't fetch from r/{sub}: Unknown Request Error.")
+        except Exception as e:
+            print(f"An unexpected error occurred for {sub}: {e}")
 
     return all_cats
 
@@ -164,6 +193,9 @@ with st.spinner("Whispering to the dust kitties..."):
     cat_list = cached_cats()
 
 if cat_list:
+    # --- New Improvement: Display count of fetched cats ---
+    st.markdown(f"<p class='cat-count-info'>✨ Found {len(cat_list)} adorable dustkitties! Enjoy the fluff! 🐾</p>", unsafe_allow_html=True)
+    
     cols = st.columns(2)
     for i, cat in enumerate(cat_list):
         with cols[i % 2]:
@@ -174,7 +206,7 @@ if cat_list:
             st.markdown(f"""
                 <div class="kitty-card">
                     <a href="{cat['post']}" target="_blank">
-                        <img src="{cat['image']}">
+                        <img src="{cat['image']}" loading="lazy">
                     </a>
                 </div>
             """, unsafe_allow_html=True)
