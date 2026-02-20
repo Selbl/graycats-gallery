@@ -190,10 +190,9 @@ def get_cats(limit_per_subreddit=10):
         try:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
-            data = response.json()
-            posts = data.get('data', {}).get('children', [])
+            data = response.json().get('data', {}).get('children', []) # Directly get children here
             
-            for post in posts:
+            for post in data: # Iterate over data directly
                 if count >= limit_per_subreddit: break # Stop once desired number of images is reached
                 
                 p = post.get('data', {})
@@ -205,11 +204,12 @@ def get_cats(limit_per_subreddit=10):
                     img_url = url_dest
                 
                 elif p.get('is_gallery') and p.get('media_metadata'):
+                    # Handle galleries by taking the first image
                     first_item_id = list(p['media_metadata'].keys())[0]
                     img_info = p['media_metadata'][first_item_id]['s']
-                    if 'u' in img_info:
+                    if 'u' in img_info: # Original image URL
                         img_url = img_info['u']
-                    elif 'mp4_url' in img_info:
+                    elif 'mp4_url' in img_info: # Fallback for videos in galleries (though we filter videos later)
                         img_url = img_info['mp4_url']
 
                 elif p.get('preview') and p['preview'].get('images'):
@@ -220,8 +220,8 @@ def get_cats(limit_per_subreddit=10):
                     all_cats.append({
                         "image": clean_url,
                         "post": post_link,
-                        "title": p.get('title', 'Untitled Cat Post'), # ADDED: Fetch and store post title
-                        "subreddit": p.get('subreddit', 'Unknown Subreddit') # ADDED: Fetch and store subreddit name
+                        "title": p.get('title', 'Untitled Cat Post'),
+                        "subreddit": p.get('subreddit', 'Unknown Subreddit')
                     })
                     count += 1
                     
@@ -243,31 +243,41 @@ def get_cats(limit_per_subreddit=10):
 st.markdown("<h1>Floyd and Frieda's Dustkitty Gallery ✨</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>The world's premier collection of velvety gray fluff-clouds ฅ^•ﻌ•^ฅ</p>", unsafe_allow_html=True)
 
+# NEW: Function to update query parameters on slider change
+def update_slider_query_params():
+    st.query_params["cats_per_sub"] = str(st.session_state.cat_slider)
+    st.query_params["columns"] = str(st.session_state.column_slider)
+
+# NEW: Get initial values from query parameters or set defaults
+# Use .get() method with a default value to avoid KeyError if param is not present
+initial_cats_per_sub = int(st.query_params.get("cats_per_sub", 10))
+initial_columns = int(st.query_params.get("columns", 2))
+
 desired_cats_per_subreddit = st.slider(
     "How many dustkitties per subreddit would you like to summon?",
-    min_value=5, max_value=20, value=10, step=1,
-    key="cat_slider"
+    min_value=5, max_value=20, value=initial_cats_per_sub, step=1,
+    key="cat_slider",
+    on_change=update_slider_query_params # Call function when slider changes
 )
 
 num_columns = st.slider(
     "How many columns would you like in your gallery?",
-    min_value=1, max_value=4, value=2, step=1,
-    key="column_slider"
+    min_value=1, max_value=4, value=initial_columns, step=1,
+    key="column_slider",
+    on_change=update_slider_query_params # Call function when slider changes
 )
 
 if st.button("✨ SUMMON MORE CATS ✨"):
     st.cache_data.clear()
-    if hasattr(st, "rerun"):
-        st.rerun()
-    else:
-        st.experimental_rerun()
+    st.rerun() # Use st.rerun directly
 
 with st.spinner("Whispering to the dust kitties..."):
     @st.cache_data(ttl=600)
     def cached_cats(limit):
         return get_cats(limit)
     
-    cat_list, errors = cached_cats(desired_cats_per_subreddit) # Unpack the tuple
+    # Pass the current value from the slider, which might have been initialized from query_params
+    cat_list, errors = cached_cats(desired_cats_per_subreddit) 
     random.shuffle(cat_list)
 
 # Display error messages to the user if any occurred during fetching
@@ -282,9 +292,9 @@ if cat_list:
     cols = st.columns(num_columns)
     for i, cat in enumerate(cat_list):
         with cols[i % num_columns]:
-            st.markdown(f"### 🎀 Dustkitty {i+1}")
+            # Using explicit h3 tag for consistent styling application
+            st.markdown(f"<h3>🎀 Dustkitty {i+1}</h3>", unsafe_allow_html=True) 
             
-            # Updated the div class to use the new skeleton loader styling
             st.markdown(f"""
                 <div class="kitty-card-container">
                     Summoning fluff...
@@ -292,7 +302,7 @@ if cat_list:
                         <img src="{cat['image']}" loading="lazy" alt="Dustkitty {i+1}">
                     </a>
                 </div>
-                <div class="kitty-post-details"> {/* ADDED: Display title and subreddit */}
+                <div class="kitty-post-details">
                     <strong>{cat['title']}</strong><br>
                     <span class="subreddit">from r/{cat['subreddit']}</span>
                 </div>
