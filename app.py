@@ -165,6 +165,7 @@ def get_cats(limit_per_subreddit=10):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FloydAndFriedaBot/1.0"}
     subreddits = ["graycats", "dustkitties"]
     all_cats = []
+    error_messages = [] # List to store user-facing error messages
 
     for sub in subreddits:
         count = 0
@@ -173,7 +174,7 @@ def get_cats(limit_per_subreddit=10):
         
         try:
             response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
+            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
             data = response.json()
             posts = data.get('data', {}).get('children', [])
             
@@ -208,17 +209,17 @@ def get_cats(limit_per_subreddit=10):
                     count += 1
                     
         except requests.exceptions.HTTPError as errh:
-            print(f"HTTP Error for {sub}: {errh}")
+            error_messages.append(f"HTTP Error fetching from r/{sub}: {errh}")
         except requests.exceptions.ConnectionError as errc:
-            print(f"Error Connecting for {sub}: {errc}")
+            error_messages.append(f"Network Connection Error fetching from r/{sub}: {errc}")
         except requests.exceptions.Timeout as errt:
-            print(f"Timeout Error for {sub}: {errt}")
+            error_messages.append(f"Timeout Error fetching from r/{sub}: {errt}")
         except requests.exceptions.RequestException as err:
-            print(f"Other Request Error for {sub}: {err}")
+            error_messages.append(f"An unknown request error occurred for r/{sub}: {err}")
         except Exception as e:
-            print(f"An unexpected error occurred for {sub}: {e}")
+            error_messages.append(f"An unexpected error occurred while processing r/{sub}: {e}")
 
-    return all_cats
+    return all_cats, error_messages
 
 # --- User Interface ---
 
@@ -249,8 +250,14 @@ with st.spinner("Whispering to the dust kitties..."):
     def cached_cats(limit):
         return get_cats(limit)
     
-    cat_list = cached_cats(desired_cats_per_subreddit)
+    cat_list, errors = cached_cats(desired_cats_per_subreddit) # Unpack the tuple
     random.shuffle(cat_list)
+
+# Display error messages to the user if any occurred during fetching
+if errors:
+    st.markdown("<p class='cat-count-info' style='color:#ff6347; margin-bottom: 10px;'>🐾 Encountered some issues:</p>", unsafe_allow_html=True)
+    for error_msg in errors:
+        st.warning(error_msg)
 
 if cat_list:
     st.markdown(f"<p class='cat-count-info'>✨ Found {len(cat_list)} adorable dustkitties! Enjoy the fluff! 🐾</p>", unsafe_allow_html=True)
@@ -270,6 +277,8 @@ if cat_list:
                 </div>
             """, unsafe_allow_html=True)
 else:
-    st.error("No cats found! Try clicking Summon again! 🐾")
+    # Only show this generic "No cats found" message if there were no specific API errors reported
+    if not errors: 
+        st.error("No cats found! Try clicking Summon again! 🐾")
 
 st.markdown("<p style='text-align:center; color:#ff85a2; margin-top:50px;'>Stay Gray and Stay Fluffy! 🌫️</p>", unsafe_allow_html=True)
