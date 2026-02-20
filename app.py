@@ -71,7 +71,7 @@ st.markdown("""
         color: #bbb; /* Color for loading text */
         font-size: 0.9rem;
         font-style: italic;
-        margin-bottom: 20px; /* Space between cards */
+        margin-bottom: 0px; /* Space between cards, adjusted for new post details */
     }
 
     /* Shimmer animation for the skeleton loader */
@@ -111,6 +111,21 @@ st.markdown("""
         border-color: #ffdae9 !important;
     }
     /* --- END NEW --- */
+
+    /* NEW: Styling for the post title and subreddit details */
+    .kitty-post-details {
+        text-align: center;
+        color: #8da9c4;
+        font-size: 0.95rem;
+        margin-top: 10px; /* Space above title */
+        margin-bottom: 20px; /* Space below details, between cards */
+        line-height: 1.3;
+    }
+    .kitty-post-details .subreddit {
+        font-style: italic;
+        font-size: 0.85rem;
+        color: #b0c4de; /* A slightly lighter shade */
+    }
 
     /* Summon Button Styling */
     div.stButton > button {
@@ -204,7 +219,9 @@ def get_cats(limit_per_subreddit=10):
                     clean_url = img_url.replace("&amp;", "&")
                     all_cats.append({
                         "image": clean_url,
-                        "post": post_link
+                        "post": post_link,
+                        "title": p.get('title', 'Untitled Cat Post'), # ADDED: Fetch and store post title
+                        "subreddit": p.get('subreddit', 'Unknown Subreddit') # ADDED: Fetch and store subreddit name
                     })
                     count += 1
                     
@@ -274,6 +291,10 @@ if cat_list:
                     <a href="{cat['post']}" target="_blank">
                         <img src="{cat['image']}" loading="lazy" alt="Dustkitty {i+1}">
                     </a>
+                </div>
+                <div class="kitty-post-details"> {/* ADDED: Display title and subreddit */}
+                    <strong>{cat['title']}</strong><br>
+                    <span class="subreddit">from r/{cat['subreddit']}</span>
                 </div>
             """, unsafe_allow_html=True)
 else:
