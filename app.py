@@ -101,56 +101,63 @@ st.markdown("""
         transform: translateY(4px);
         box-shadow: 0 4px 0px #d66d87 !important;
     }
+
+    /* Slider styling for centered label */
+    .stSlider > label {
+        color: #ff85a2 !important;
+        font-weight: bold !important;
+        text-align: center;
+        width: 100%;
+        display: block;
+        margin-bottom: 10px;
+    }
+    .stSlider > div > div > div[data-testid="stSlider"] {
+        margin-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- Logic to Fetch Images and Links ---
-def get_cats():
+def get_cats(limit_per_subreddit=10):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FloydAndFriedaBot/1.0"}
     subreddits = ["graycats", "dustkitties"]
     all_cats = []
 
     for sub in subreddits:
         count = 0
-        url = f"https://www.reddit.com/r/{sub}/new.json?limit=40"
+        # Fetch more posts from Reddit's API than needed to ensure we get 'limit_per_subreddit' *valid* images after filtering.
+        url = f"https://www.reddit.com/r/{sub}/new.json?limit={limit_per_subreddit * 2}" 
         
         try:
-            response = requests.get(url, headers=headers, timeout=10) # Added timeout
-            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
             data = response.json()
             posts = data.get('data', {}).get('children', [])
             
             for post in posts:
-                if count >= 10: break
+                if count >= limit_per_subreddit: break # Stop once desired number of images is reached
                 
                 p = post.get('data', {})
                 img_url = ""
-                # Get the reddit post link
                 post_link = f"https://www.reddit.com{p.get('permalink')}"
 
-                # 1. Standard Image
                 url_dest = p.get('url_overridden_by_dest', '')
                 if any(url_dest.lower().endswith(ext) for ext in ['.jpg', '.png', '.jpeg']):
                     img_url = url_dest
                 
-                # 2. Gallery Support
                 elif p.get('is_gallery') and p.get('media_metadata'):
                     first_item_id = list(p['media_metadata'].keys())[0]
-                    # Direct image URL from gallery, ensuring it's not a video or GIF if possible
                     img_info = p['media_metadata'][first_item_id]['s']
-                    if 'u' in img_info: # 'u' is for static image url
+                    if 'u' in img_info:
                         img_url = img_info['u']
-                    elif 'mp4_url' in img_info: # Fallback for gif/video previews if static not available
+                    elif 'mp4_url' in img_info:
                         img_url = img_info['mp4_url']
 
-                # 3. Preview Fallback
                 elif p.get('preview') and p['preview'].get('images'):
                     img_url = p['preview']['images'][0]['source']['url']
 
-                # Filter out v.redd.it videos and ensure we have an image URL
                 if img_url and "v.redd.it" not in img_url and not img_url.endswith(('.mp4', '.gifv')):
                     clean_url = img_url.replace("&amp;", "&")
-                    # Store both image and post link
                     all_cats.append({
                         "image": clean_url,
                         "post": post_link
@@ -159,16 +166,12 @@ def get_cats():
                     
         except requests.exceptions.HTTPError as errh:
             print(f"HTTP Error for {sub}: {errh}")
-            # st.warning(f"Couldn't fetch from r/{sub}: HTTP Error.") # Cannot use st.warning in cached func
         except requests.exceptions.ConnectionError as errc:
             print(f"Error Connecting for {sub}: {errc}")
-            # st.warning(f"Couldn't fetch from r/{sub}: Connection Error.")
         except requests.exceptions.Timeout as errt:
             print(f"Timeout Error for {sub}: {errt}")
-            # st.warning(f"Couldn't fetch from r/{sub}: Timeout.")
         except requests.exceptions.RequestException as err:
             print(f"Other Request Error for {sub}: {err}")
-            # st.warning(f"Couldn't fetch from r/{sub}: Unknown Request Error.")
         except Exception as e:
             print(f"An unexpected error occurred for {sub}: {e}")
 
@@ -179,7 +182,15 @@ def get_cats():
 st.markdown("<h1>Floyd and Frieda's Dustkitty Gallery ✨</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>The world's premier collection of velvety gray fluff-clouds ฅ^•ﻌ•^ฅ</p>", unsafe_allow_html=True)
 
+# Improvement: Add a slider for user to control the number of cats
+desired_cats_per_subreddit = st.slider(
+    "How many dustkitties per subreddit would you like to summon?",
+    min_value=5, max_value=20, value=10, step=1,
+    key="cat_slider"
+)
+
 if st.button("✨ SUMMON MORE CATS ✨"):
+    # Clear the cache to ensure new content is fetched, even if the slider value hasn't changed
     st.cache_data.clear()
     if hasattr(st, "rerun"):
         st.rerun()
@@ -187,13 +198,14 @@ if st.button("✨ SUMMON MORE CATS ✨"):
         st.experimental_rerun()
 
 with st.spinner("Whispering to the dust kitties..."):
+    # The cache key for cached_cats will now depend on the 'limit' argument
     @st.cache_data(ttl=600)
-    def cached_cats():
-        return get_cats()
-    cat_list = cached_cats()
+    def cached_cats(limit):
+        return get_cats(limit)
+    
+    cat_list = cached_cats(desired_cats_per_subreddit) # Pass the slider value to the cached function
 
 if cat_list:
-    # --- New Improvement: Display count of fetched cats ---
     st.markdown(f"<p class='cat-count-info'>✨ Found {len(cat_list)} adorable dustkitties! Enjoy the fluff! 🐾</p>", unsafe_allow_html=True)
     
     cols = st.columns(2)
@@ -201,8 +213,6 @@ if cat_list:
         with cols[i % 2]:
             st.markdown(f"### 🎀 Dustkitty {i+1}")
             
-            # Use raw HTML to wrap the image in a link
-            # 'target="_blank"' makes it open in a new tab
             st.markdown(f"""
                 <div class="kitty-card">
                     <a href="{cat['post']}" target="_blank">
