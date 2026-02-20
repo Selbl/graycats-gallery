@@ -216,7 +216,7 @@ if cat_list:
             st.markdown(f"""
                 <div class="kitty-card">
                     <a href="{cat['post']}" target="_blank">
-                        <img src="{cat['image']}" loading="lazy">
+                        <img src="{cat['image']}" loading="lazy" alt="Dustkitty {i+1}">
                     </a>
                 </div>
             """, unsafe_allow_html=True)
