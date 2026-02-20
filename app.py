@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import random
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -204,6 +205,7 @@ with st.spinner("Whispering to the dust kitties..."):
         return get_cats(limit)
     
     cat_list = cached_cats(desired_cats_per_subreddit) # Pass the slider value to the cached function
+    random.shuffle(cat_list) # Improvement: Randomize the order of cats for a fresh look on each summon
 
 if cat_list:
     st.markdown(f"<p class='cat-count-info'>✨ Found {len(cat_list)} adorable dustkitties! Enjoy the fluff! 🐾</p>", unsafe_allow_html=True)
