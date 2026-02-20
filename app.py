@@ -30,7 +30,6 @@ st.markdown("""
         margin-bottom: 5px !important;
     }
             
-    /* Cute styling for the 🎀 Dustkitty headers */
     h3 {
         color: #ff85a2 !important;
         font-weight: 800 !important;
@@ -45,25 +44,28 @@ st.markdown("""
         font-weight: bold;
     }
 
-    /* Image Styling */
-    img {
+    /* Image Styling applied to the HTML images */
+    .kitty-card img {
+        width: 100%;
         border-radius: 40px !important;
         border: 6px solid #ffffff !important;
         box-shadow: 8px 8px 0px #ffdae9;
         transition: transform 0.3s ease-in-out;
+        cursor: pointer;
     }
 
-    img:hover {
+    .kitty-card img:hover {
         transform: scale(1.02) rotate(1deg);
+        border-color: #ffdae9 !important;
     }
 
-    /* IMPROVED SUMMON BUTTON STYLING */
+    /* Summon Button Styling */
     div.stButton > button {
-        background-color: #ff85a2 !important; /* Solid bright pink */
-        background-image: none !important;    /* Removes any default gradients */
-        color: white !important;              /* High contrast white text */
+        background-color: #ff85a2 !important;
+        background-image: none !important;
+        color: white !important;
         border-radius: 50px !important;
-        border: 3px solid #ffffff !important; /* White border for 'sticker' look */
+        border: 3px solid #ffffff !important;
         padding: 15px 40px !important;
         font-size: 1.6rem !important;
         font-weight: 800 !important;
@@ -71,11 +73,10 @@ st.markdown("""
         letter-spacing: 1px;
         display: block;
         margin: 0 auto 30px auto !important;
-        box-shadow: 0 8px 0px #d66d87 !important; /* Solid dark pink shadow */
+        box-shadow: 0 8px 0px #d66d87 !important;
         transition: all 0.1s ease;
     }
 
-    /* THE FIX: Forces inner text containers to be transparent */
     div.stButton > button * {
         background-color: transparent !important;
         color: white !important;
@@ -84,7 +85,6 @@ st.markdown("""
     div.stButton > button:hover {
         background-color: #ff7091 !important;
         border-color: #ffffff !important;
-        color: white !important;
     }
 
     div.stButton > button:active {
@@ -94,11 +94,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Logic to Fetch Images ---
+# --- Logic to Fetch Images and Links ---
 def get_cats():
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FloydAndFriedaBot/1.0"}
     subreddits = ["graycats", "dustkitties"]
-    all_images = []
+    all_cats = []
 
     for sub in subreddits:
         count = 0
@@ -114,6 +114,8 @@ def get_cats():
                 
                 p = post.get('data', {})
                 img_url = ""
+                # Get the reddit post link
+                post_link = f"https://www.reddit.com{p.get('permalink')}"
 
                 # 1. Standard Image
                 url_dest = p.get('url_overridden_by_dest', '')
@@ -130,22 +132,24 @@ def get_cats():
                     img_url = p['preview']['images'][0]['source']['url']
 
                 if img_url and "v.redd.it" not in img_url:
-                    # Clean the URL (removes &amp;)
                     clean_url = img_url.replace("&amp;", "&")
-                    all_images.append(clean_url)
+                    # Store both image and post link
+                    all_cats.append({
+                        "image": clean_url,
+                        "post": post_link
+                    })
                     count += 1
                     
         except Exception:
-            pass # Silently skip errors for a cleaner UI
+            pass 
 
-    return all_images
+    return all_cats
 
 # --- User Interface ---
 
 st.markdown("<h1>Floyd and Frieda's Dustkitty Gallery ✨</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>The world's premier collection of velvety gray fluff-clouds ฅ^•ﻌ•^ฅ</p>", unsafe_allow_html=True)
 
-# The "Summon" Button
 if st.button("✨ SUMMON MORE CATS ✨"):
     st.cache_data.clear()
     if hasattr(st, "rerun"):
@@ -153,7 +157,6 @@ if st.button("✨ SUMMON MORE CATS ✨"):
     else:
         st.experimental_rerun()
 
-# Fetch and Display
 with st.spinner("Whispering to the dust kitties..."):
     @st.cache_data(ttl=600)
     def cached_cats():
@@ -162,11 +165,19 @@ with st.spinner("Whispering to the dust kitties..."):
 
 if cat_list:
     cols = st.columns(2)
-    for i, url in enumerate(cat_list):
+    for i, cat in enumerate(cat_list):
         with cols[i % 2]:
             st.markdown(f"### 🎀 Dustkitty {i+1}")
-            # Use use_column_width for older Streamlit compatibility
-            st.image(url, use_column_width=True)
+            
+            # Use raw HTML to wrap the image in a link
+            # 'target="_blank"' makes it open in a new tab
+            st.markdown(f"""
+                <div class="kitty-card">
+                    <a href="{cat['post']}" target="_blank">
+                        <img src="{cat['image']}">
+                    </a>
+                </div>
+            """, unsafe_allow_html=True)
             st.write("") 
 else:
     st.error("No cats found! Try clicking Summon again! 🐾")
