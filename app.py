@@ -55,20 +55,62 @@ st.markdown("""
         font-weight: bold;
     }
 
-    /* Image Styling applied to the HTML images */
-    .kitty-card img {
+    /* --- NEW: Kitty Card Container with Skeleton Loader Effect --- */
+    .kitty-card-container {
+        position: relative;
         width: 100%;
+        min-height: 250px; /* Ensure placeholder height for skeleton */
         border-radius: 40px !important;
         border: 6px solid #ffffff !important;
         box-shadow: 8px 8px 0px #ffdae9;
-        transition: transform 0.3s ease-in-out;
-        cursor: pointer;
+        background-color: #f0f0f0; /* Skeleton background color */
+        overflow: hidden; /* For shimmer effect */
+        display: flex; /* To center loading text */
+        align-items: center; /* To center loading text */
+        justify-content: center; /* To center loading text */
+        color: #bbb; /* Color for loading text */
+        font-size: 0.9rem;
+        font-style: italic;
+        margin-bottom: 20px; /* Space between cards */
     }
 
-    .kitty-card img:hover {
+    /* Shimmer animation for the skeleton loader */
+    .kitty-card-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -150%; /* Start off-screen */
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shimmer 1.5s infinite;
+        z-index: 1; /* Above background, below image */
+    }
+
+    @keyframes shimmer {
+        0% { left: -150%; }
+        100% { left: 150%; }
+    }
+
+    /* Image Styling applied to the HTML images within the container */
+    .kitty-card-container img {
+        width: 100%;
+        height: auto; /* Maintain aspect ratio */
+        border-radius: 40px !important; /* Apply border-radius to image */
+        border: 6px solid #ffffff !important; /* Apply border to image */
+        box-shadow: 8px 8px 0px #ffdae9; /* Apply shadow to image */
+        transition: transform 0.3s ease-in-out;
+        cursor: pointer;
+        display: block; /* Ensure it covers the parent */
+        position: relative; /* To be on top of skeleton and shimmer */
+        z-index: 2; /* Ensure image is above shimmer */
+    }
+
+    .kitty-card-container img:hover {
         transform: scale(1.02) rotate(1deg);
         border-color: #ffdae9 !important;
     }
+    /* --- END NEW --- */
 
     /* Summon Button Styling */
     div.stButton > button {
@@ -189,15 +231,13 @@ desired_cats_per_subreddit = st.slider(
     key="cat_slider"
 )
 
-# Improvement: Add a slider for user to control the number of columns in the gallery
 num_columns = st.slider(
     "How many columns would you like in your gallery?",
-    min_value=1, max_value=4, value=2, step=1, # Default to 2 columns, allow up to 4
+    min_value=1, max_value=4, value=2, step=1,
     key="column_slider"
 )
 
 if st.button("✨ SUMMON MORE CATS ✨"):
-    # Clear the cache to ensure new content is fetched, even if the slider value hasn't changed
     st.cache_data.clear()
     if hasattr(st, "rerun"):
         st.rerun()
@@ -205,31 +245,30 @@ if st.button("✨ SUMMON MORE CATS ✨"):
         st.experimental_rerun()
 
 with st.spinner("Whispering to the dust kitties..."):
-    # The cache key for cached_cats will now depend on the 'limit' argument
     @st.cache_data(ttl=600)
     def cached_cats(limit):
         return get_cats(limit)
     
-    cat_list = cached_cats(desired_cats_per_subreddit) # Pass the slider value to the cached function
-    random.shuffle(cat_list) # Randomize the order of cats for a fresh look on each summon
+    cat_list = cached_cats(desired_cats_per_subreddit)
+    random.shuffle(cat_list)
 
 if cat_list:
     st.markdown(f"<p class='cat-count-info'>✨ Found {len(cat_list)} adorable dustkitties! Enjoy the fluff! 🐾</p>", unsafe_allow_html=True)
     
-    # Use the user-defined number of columns
     cols = st.columns(num_columns)
     for i, cat in enumerate(cat_list):
-        with cols[i % num_columns]: # Distribute images across the selected number of columns
+        with cols[i % num_columns]:
             st.markdown(f"### 🎀 Dustkitty {i+1}")
             
+            # Updated the div class to use the new skeleton loader styling
             st.markdown(f"""
-                <div class="kitty-card">
+                <div class="kitty-card-container">
+                    Summoning fluff...
                     <a href="{cat['post']}" target="_blank">
                         <img src="{cat['image']}" loading="lazy" alt="Dustkitty {i+1}">
                     </a>
                 </div>
             """, unsafe_allow_html=True)
-            st.write("") 
 else:
     st.error("No cats found! Try clicking Summon again! 🐾")
 
